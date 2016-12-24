@@ -10,12 +10,17 @@
 ; -----------------------------------------------------------------------------------------;
 Enumeration
   #PBExpress_ContentLength = 100
-  #PBExpress_ContentFormat
-  #PBExpress_RAWString
-  #PBExpress_Json
-  #PBExpress_Post
-  #PBExpress_JsonPost
+  #PBExpress_OutputBuffer
 EndEnumeration
+
+; -----------------------------------------------------------------------------------------;
+; Structure for Post-Files
+; -----------------------------------------------------------------------------------------;
+Structure PBEFiles
+  Size.i
+  Filename.s
+  Buffer.i
+EndStructure
 
 ; ========================================================================================;
 ; The Hash for the Route-ID
@@ -23,7 +28,7 @@ EndEnumeration
 UseMD5Fingerprint()
 
 ; ========================================================================================;
-; Regular Expression for forbidden Signs
+; Expression For forbidden Signs
 ; ========================================================================================;
 CreateRegularExpression(1001,"[\s\W]",#PB_RegularExpression_NoCase)
 
@@ -31,11 +36,15 @@ CreateRegularExpression(1001,"[\s\W]",#PB_RegularExpression_NoCase)
 ; PBExpress-Module Declararion
 ; ========================================================================================;
 DeclareModule PBExpress
-  Declare.b AddRouteKey(keystring.s)
-  Declare.b AddRoute(route.s,callback.i)
+  Declare.b AddRouteKey(KeyString.s)
+  Declare.b AddRoute(Route.s,CallBack.i)
   Declare.b SetOption(Option.i,Value.i)
   Declare.b RunServer()
-  Declare.b SetDefaultPage(cacllback.i)
+  Declare.b SetDefaultPage(CallBack.i)
+  Declare SetCookie(Name.s,Value.s,Expires.i = 0,Secure.b = #False,HTTPOnly.b = #False)
+  Declare.s GetCookie(Name.s)
+  Declare.b Header(Type.s,Value.s,Flags.i = #PB_UTF8)
+  Declare Output(OutStr.s)
 EndDeclareModule
 
 ; ========================================================================================;
@@ -43,37 +52,41 @@ EndDeclareModule
 ; ========================================================================================;
 Module PBExpress
   ; -----------------------------------------------------------------------------------------;
-  ; Basic Initializing for important constructs
-  ; -----------------------------------------------------------------------------------------;
-  EnableExplicit
-  Prototype.i Routeapp(Map Request.s(),Map Post.s())
-  NewList Keys.s()
-  NewMap Routes.i()
-  Define DefaultPage.RouteApp
-  
-  ; -----------------------------------------------------------------------------------------;
   ; Constants to Setup the Framework
   ; -----------------------------------------------------------------------------------------;
   Enumeration
     #PBExpress_ContentLength = 100
-    #PBExpress_ContentFormat
-    #PBExpress_RAWString
-    #PBExpress_Json
-    #PBExpress_Post
-    #PBExpress_JsonPost
+    #PBExpress_OutputBuffer
   EndEnumeration
+  
+  ; -----------------------------------------------------------------------------------------;
+  ; Structure for Post-Files
+  ; -----------------------------------------------------------------------------------------;
+  Structure PBEFiles
+    Size.i
+    Filename.s
+    Buffer.i
+  EndStructure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ; Basic Initializing for important constructs
+  ; -----------------------------------------------------------------------------------------;
+  Prototype.i Routeapp(Map Request.s(),Map Get.s(),Map Post.s(),Map Files.PBEFiles())
+  NewList Keys.s()
+  NewMap Routes.i()
+  Define.RouteApp DefaultPage
   
   ; -----------------------------------------------------------------------------------------;
   ; Configuration-Structure
   ; -----------------------------------------------------------------------------------------;
   Structure PBEConfig
-    ContentLength.i
-    ContentFormat.i
+    MaxContentLength.i
+    OutputBuffer.b
   EndStructure
   
   Define Config.PBEConfig
-  Config\ContentLength = 131072               ; Default: 128 KB
-  Config\ContentFormat = #PBExpress_JsonPost  ; Default: JSON and Post (URL-Encoded Key-Value) allowed
+  Config\MaxContentLength = 131072               ; Default: 128 KB
+  Config\OutputBuffer = #False
   
   ; -----------------------------------------------------------------------------------------;
   ; Procedure to Change Settings
@@ -83,24 +96,18 @@ Module PBExpress
     Select Option
       Case #PBExpress_ContentLength
         If Value < 10240
-          Config\ContentLength = Value * 1024
+          Config\MaxContentLength = Value * 1024
           ProcedureReturn #True
         Else
           ProcedureReturn #False
         EndIf
-      Case #PBExpress_ContentFormat
+      Case #PBExpress_OutputBuffer
         Select Value
-          Case #PBExpress_Json
-            Config\ContentFormat = #PBExpress_Json
+          Case #True
+            Config\OutputBuffer = #True
             ProcedureReturn #True
-          Case #PBExpress_JsonPost
-            Config\ContentFormat = #PBExpress_JsonPost
-            ProcedureReturn #True
-          Case #PBExpress_Post
-            Config\ContentFormat = #PBExpress_Post
-            ProcedureReturn #True
-          Case #PBExpress_RAWString
-            Config\ContentFormat = #PBExpress_RAWString
+          Case #False
+            Config\OutputBuffer = #False
             ProcedureReturn #True
           Default
             ProcedureReturn #False
@@ -114,23 +121,24 @@ Module PBExpress
   ; -----------------------------------------------------------------------------------------;
   ; Procedure to Parse Routes with an Fake URL and the HTTP-Library
   ; -----------------------------------------------------------------------------------------;
-  Procedure.s ParseKeys(strtoparse.s)
-    Define fakeurl.s = "a://b.c/?" + strtoparse
+  Procedure.s ParseKeys(StrToParse.s)
+    Define.s FakeURL = "a://b.c/?" + StrToParse
+    Define.s RouteString = ""
     Shared Keys()
-    Define routestring.s = ""
+  
     ForEach Keys()
-      routestring + Keys() + ":" + GetURLPart(fakeurl,Keys()) + ";"
+      RouteString + Keys() + ":" + GetURLPart(FakeURL,Keys()) + ";"
     Next
-    ProcedureReturn StringFingerprint(routestring,#PB_Cipher_MD5)
+    ProcedureReturn StringFingerprint(RouteString,#PB_Cipher_MD5)
   EndProcedure
   
   ; -----------------------------------------------------------------------------------------;
   ; Procedure to Set the Default-Page
   ; -----------------------------------------------------------------------------------------;
-  Procedure.b SetDefaultPage(callback.i)
+  Procedure.b SetDefaultPage(CallBack.i)
     Shared DefaultPage
-    If callback > 0
-      DefaultPage = callback
+    If CallBack > 0
+      DefaultPage = CallBack
       ProcedureReturn #True
     Else
       ProcedureReturn #False
@@ -140,10 +148,10 @@ Module PBExpress
   ; -----------------------------------------------------------------------------------------;
   ; Add a Route-Key to use for the Routeparser
   ; -----------------------------------------------------------------------------------------;
-  Procedure.b AddRouteKey(keystring.s)
+  Procedure.b AddRouteKey(KeyString.s)
     Shared Keys()
-    If Not MatchRegularExpression(1001,keystring)
-      AddElement(Keys()) : Keys() = keystring
+    If Not MatchRegularExpression(1001,KeyString)
+      AddElement(Keys()) : Keys() = KeyString
       ProcedureReturn #True
     Else
       ProcedureReturn #False
@@ -153,13 +161,13 @@ Module PBExpress
   ; -----------------------------------------------------------------------------------------;
   ; Add a Route to the Routing-Table
   ; -----------------------------------------------------------------------------------------;
-  Procedure.b AddRoute(route.s,callback.i)
+  Procedure.b AddRoute(Route.s,CallBack.i)
     Shared Keys()
     Shared Routes.i()
     If ListSize(Keys()) > 0
-      Define routestring.s = ParseKeys(route)
-      If Not routestring = ""
-        Routes(routestring) = callback
+      Define.s RouteString = ParseKeys(Route)
+      If Not RouteString = ""
+        Routes(RouteString) = CallBack
         ProcedureReturn #True
       Else
         ProcedureReturn #False
@@ -170,16 +178,109 @@ Module PBExpress
   EndProcedure
   
   ; -----------------------------------------------------------------------------------------;
+  ; Alias for WriteCGIHeader
+  ; -----------------------------------------------------------------------------------------;
+  Procedure.b Header(type.s,value.s,flags.i = #PB_UTF8)
+    If WriteCGIHeader(type,value,flags)
+      ProcedureReturn #True
+    Else
+      ProcedureReturn #False
+    EndIf
+  EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ; Output-Procedure
+  ; -----------------------------------------------------------------------------------------;
+  Define.s CacheString
+  Procedure Output(OutStr.s)
+    Shared CacheString
+    Shared Config
+    If Config\OutputBuffer
+      CacheString + OutStr
+    Else
+      WriteCGIStringN(OutStr.s)
+    EndIf
+  EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ; Start SetCookie-Routine
+  ; -----------------------------------------------------------------------------------------;
+  Dim Days.s(6)
+  Days(0) = "Sun"
+  Days(1) = "Mon"
+  Days(2) = "Tue"
+  Days(3) = "Wed"
+  Days(4) = "Thu"
+  Days(5) = "Fri"
+  Days(6) = "Sat"
+  
+  Dim Months.s(11)
+  Months(0) = "Jan"
+  Months(1) = "Feb"
+  Months(2) = "Mar"
+  Months(3) = "Apr"
+  Months(4) = "May"
+  Months(5) = "Jun"
+  Months(6) = "Jul"
+  Months(7) = "Aug"
+  Months(8) = "Sep"
+  Months(9) = "Oct"
+  Months(10) = "Nov"
+  Months(11) = "Dec"
+  
+  Procedure.s CheckDoubleDigit(Digits.i)
+    If Digits < 10
+      ProcedureReturn "0" + Str(Digits)
+    Else
+      ProcedureReturn Str(Digits)
+    EndIf
+  EndProcedure
+  
+  Procedure SetCookie(Name.s,Value.s,Expires.i = 0,Secure.b = #False,HTTPOnly.b = #False)
+    Shared Days()
+    Shared Months()
+    Define.s CookieString
+    CookieString = URLEncoder(Name) + "=" + URLEncoder(Value)
+    If Expires
+      CookieString + "; expires=" + Days(DayOfWeek(Expires)) 
+      CookieString + ", " + CheckDoubleDigit(Day(Expires)) + "-" + Months(Month(Expires)-1) + "-" + Str(Year(Expires))
+      CookieString + " " + CheckDoubleDigit(Hour(Expires)) + ":" + CheckDoubleDigit(Minute(Expires)) + ":" + CheckDoubleDigit(Second(Expires))
+      CookieString + " GMT"
+    EndIf
+    If Secure
+      CookieString + "; secure"
+    EndIf
+    If HTTPOnly
+      CookieString + "; httponly"
+    EndIf
+    WriteCGIHeader(#PB_CGI_HeaderSetCookie,CookieString)
+  EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ;  GetCookie-Routine
+  ; -----------------------------------------------------------------------------------------;
+  Procedure.s GetCookie(Name.s)
+    If CountCGICookies()
+      ProcedureReturn CGICookieValue(Name)
+    Else
+      ProcedureReturn ""
+    EndIf
+  EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
   ; Run the Server
   ; -----------------------------------------------------------------------------------------;
   Procedure.b RunServer()
     Shared Config
     Shared Routes()
     Shared DefaultPage
+    Shared CacheString
     NewMap Request.s()
     NewMap Post.s()
+    NewMap Get.s()
+    NewMap Files.PBEFiles()
     Define.i CntLen, BufferLen
-    Define.s RequestType, CalledRoute, ContentType
+    Define.s RequestType, ContentType, QueryString
     
     While WaitFastCGIRequest()
       BufferLen = ReadCGI()
@@ -187,67 +288,76 @@ Module PBExpress
         ; #### Get Operation Header-Data #### ;
         CntLen = Val(CGIVariable(#PB_CGI_ContentLength))
         RequestType = CGIVariable(#PB_CGI_RequestMethod)
-        CalledRoute = CGIVariable(#PB_CGI_QueryString)
+        QueryString = CGIVariable(#PB_CGI_QueryString)
         ContentType = CGIVariable(#PB_CGI_ContentType)
         
-        Debug ContentType
-        
         ; #### Check the Length of the Request-Body #### ;
-        If CntLen > Config\ContentLength
+        If CntLen > Config\MaxContentLength
           WriteCGIHeader(#PB_CGI_HeaderStatus, "413", #PB_CGI_LastHeader)
-          WriteCGIStringN("<h1>413</h1><p>Request Entity Too Large: The Requestbody-Limit is " + Str(Config\ContentLength) + " Bytes</p>")
+          WriteCGIStringN("<h1>413</h1><p>Request Entity Too Large: The Requestbody-Limit is " + Str(Config\MaxContentLength) + " Bytes</p>")
           Continue
         EndIf
         
-        If (RequestType = "POST" Or RequestType = "PUT" Or RequestType = "PATCH") And CntLen > 0
-          Define.s PostString = Right(PeekS(CGIBuffer(),BufferLen,#PB_Ascii),CntLen)
-          
-          ; #### Check JSON #### ;
-          If (Config\ContentFormat = #PBExpress_Json Or Config\ContentFormat = #PBExpress_JsonPost) And ContentType = "application/json"
-            If ParseJSON(#PB_Any, PostString)
-              FreeJSON(#PB_All)
-              Post("JSON") = PostString
+        ; #### Parsing URL Key-Values to Create Get-List #### ;
+        If Not QueryString = ""
+          Define.i QCounter = CountString(QueryString,"&")
+          Define.i C
+          Define.s Snippet
+          For C = 1 To QCounter + 1
+            Snippet = StringField(QueryString,C,"&")
+            If CountString(Snippet,"0") = 2
+              Get(StringField(Snippet,1,"0")) = StringField(Snippet,2,"0")
+            EndIf
+          Next C
+        EndIf
+        
+        ; #### Count CGI-Parameter
+        Define.i ParamCount = CountCGIParameters()
+        
+        ; #### Collecting POST-Data #### ;
+        If (RequestType = "POST" Or RequestType = "PUT") And ContentType = "application/x-www-form-urlencoded"
+          Define.i CP
+          For CP = 0 To ParamCount - 1
+            If CGIParameterType("",CP) = #PB_CGI_Text
+              Post(CGIParameterName(CP)) = CGIParameterValue("",CP)
+            EndIf
+          Next CP
+          If ParamCount = 0
+            WriteCGIHeader(#PB_CGI_HeaderStatus, "400", #PB_CGI_LastHeader)
+            WriteCGIStringN("<h1>400</h1><p>Bad Request: Invalid Requestbody</p>")
+            Continue
+          EndIf
+        EndIf
+        
+        ; #### Collecting POST-Data with Files #### ;
+        If (RequestType = "POST" Or RequestType = "PUT") And Left(ContentType,19) = "multipart/form-data"
+          Define.i CP
+          For CP = 0 To ParamCount - 1
+            If CGIParameterType("",CP) = #PB_CGI_Text
+              Post(CGIParameterName(CP)) = CGIParameterValue("",CP)
             Else
-              WriteCGIHeader(#PB_CGI_HeaderStatus, "400", #PB_CGI_LastHeader)
-              WriteCGIStringN("<h1>415</h1><p>Bad Request: application/json Data required. But given no valid JSON-String.</p>")
-              Continue
+              Files(CGIParameterName(CP))\Buffer = CGIParameterData("",CP)
+              Files(CGIParameterName(CP))\Filename = CGIParameterValue("",CP)
+              Files(CGIParameterName(CP))\Size = CGIParameterDataSize("",CP)
             EndIf
-          ElseIf (Config\ContentFormat = #PBExpress_Post Or Config\ContentFormat = #PBExpress_JsonPost) And ContentType = "application/x-www-form-urlencoded"
-     
-            ; #### Render Post-Data #### ;          
-            Define.i CountData = CountString(PostString,"&")
-            Define.i SnippetCount
-            If CountData > 0
-              Define c.i
-              Define Snippet.s
-              For c = 1 To CountData + 1
-                Snippet = StringField(PostString,c,"&")
-                SnippetCount = CountString(Snippet,"=")
-                If SnippetCount < 1 Or SnippetCount > 1
-                  Continue
-                Else
-                  Post(StringField(Snippet,1,"=")) = URLDecoder(StringField(Snippet,2,"="))
-                EndIf
-              Next
-            Else
-              SnippetCount = CountString(PostString,"=")
-              If SnippetCount = 1
-                Post(StringField(PostString,1,"=")) = URLDecoder(StringField(PostString,2,"="))
-              EndIf
-            EndIf
-            PostString = ""   
-            If MapSize(Post()) = 0
-              WriteCGIHeader(#PB_CGI_HeaderStatus, "400", #PB_CGI_LastHeader)
-              WriteCGIStringN("<h1>415</h1><p>Bad Request: application/x-www-form-urlencoded Data required. But given no valid Key-Value URL-Encoded Datatable.</p>")
-              Continue
-            EndIf
-          ElseIf Config\ContentFormat = #PBExpress_RAWString
-            
-            ; Important: Use the RAW-Configuration at your own Risc!
-            Post("RAW") = PostString
+          Next CP
+          If ParamCount = 0
+            WriteCGIHeader(#PB_CGI_HeaderStatus, "400", #PB_CGI_LastHeader)
+            WriteCGIStringN("<h1>400</h1><p>Bad Request: Invalid Requestbody</p>")
+            Continue
+          EndIf
+        EndIf
+        
+        ; #### Write JSON in the JSON-Key of Post() #### ;
+        If (RequestType = "POST" Or RequestType = "PUT") And ContentType = "application/json" And ParamCount = 0 And CntLen > 0
+          Define.i CntBuffer = CGIBuffer()
+          Define.i TempJson = CatchJSON(#PB_Any,CntBuffer,CntLen)
+          If TempJson
+            Post("JSON") = PeekS(CntBuffer,CntLen,#PB_UTF8)
+            FreeJSON(TempJson)
           Else
             WriteCGIHeader(#PB_CGI_HeaderStatus, "400", #PB_CGI_LastHeader)
-            WriteCGIStringN("<h1>415</h1><p>Bad Request: The Complete Request isn't valid!.</p>")
+            WriteCGIStringN("<h1>400</h1><p>Bad Request: Invalid JSON-String</p>")
             Continue
           EndIf
         EndIf
@@ -260,7 +370,7 @@ Module PBExpress
         Request("GatewayInterface") = CGIVariable(#PB_CGI_GatewayInterface)
         Request("PathInfo") = CGIVariable(#PB_CGI_PathInfo)
         Request("PathTranslated") = CGIVariable(#PB_CGI_PathTranslated)
-        Request("QueryString") = CalledRoute
+        Request("QueryString") = QueryString
         Request("RemoteAddr") = CGIVariable(#PB_CGI_RemoteAddr)
         Request("RemoteHost") = CGIVariable(#PB_CGI_RemoteHost)
         Request("RemoteIdent") = CGIVariable(#PB_CGI_RemoteIdent)
@@ -285,17 +395,27 @@ Module PBExpress
         Request("HttpReferer") = CGIVariable(#PB_CGI_HttpReferer)
         Request("HttpUserAgent") = CGIVariable(#PB_CGI_HttpUserAgent)
         
-        If CalledRoute = ""
-          DefaultPage(Request(),Post())
+        If QueryString = ""
+          DefaultPage(Request(),Get(),Post(),Files())
+          If Config\OutputBuffer
+            Shared CacheString
+            WriteCGIString(CacheString,#PB_UTF8)
+            CacheString = ""
+          EndIf
         Else
-          Define ParsedRoute.s = ParseKeys(CalledRoute)
+          Define.s ParsedRoute = ParseKeys(QueryString)
           If ParsedRoute = ""
             WriteCGIHeader(#PB_CGI_HeaderStatus, "404", #PB_CGI_LastHeader)
             WriteCGIStringN("<h1>404</h1><p>Website Not found</p>")
           Else
             If FindMapElement(Routes(),ParsedRoute)
-              Define app.RouteApp = Routes(ParsedRoute)
-              app(Request(),Post())
+              Define.RouteApp app = Routes(ParsedRoute)
+              app(Request(),Get(),Post(),Files())
+              If Config\OutputBuffer
+                Shared CacheString
+                WriteCGIString(CacheString,#PB_UTF8)
+                CacheString = ""
+              EndIf
             Else
               WriteCGIHeader(#PB_CGI_HeaderStatus, "404", #PB_CGI_LastHeader)
               WriteCGIStringN("<h1>404</h1><p>Website Not found</p>")
@@ -306,16 +426,17 @@ Module PBExpress
       BufferLen = 0
       CntLen = 0
       RequestType = ""
-      CalledRoute = ""
+      QueryString = ""
       ClearMap(Request())
       ClearMap(Post())
+      ClearMap(Get())
+      ClearMap(Files())
     Wend
   EndProcedure
 EndModule
 ; IDE Options = PureBasic 5.42 LTS (Windows - x64)
-; CursorPosition = 35
-; FirstLine = 9
-; Folding = --
+; CursorPosition = 72
+; Folding = ---
 ; EnableUnicode
 ; EnableThread
 ; EnableXP
