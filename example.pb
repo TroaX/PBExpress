@@ -1,7 +1,7 @@
 ﻿EnableExplicit
 
 ; ---- Load The Framework ---- ;
-IncludeFile "pbexpress.pb"
+IncludeFile "framework\pbexpress.pb"
 
 ; ---- Init CGI ---- ;
 If Not InitCGI()
@@ -51,7 +51,7 @@ PBExpress::RunServer()                                      ; Execute the Server
   
   
 ; IDE Options = PureBasic 5.42 LTS (Windows - x64)
-; CursorPosition = 42
+; CursorPosition = 3
 ; Folding = -
 ; EnableUnicode
 ; EnableThread
