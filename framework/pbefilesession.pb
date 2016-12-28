@@ -71,6 +71,8 @@ Module PBEFileSession
     Shared SessionLists()
     Shared SessionID
     Shared SessionDirectory
+    ClearMap(Session())
+    ClearMap(SessionLists())
     If OpenFile(0, SessionDirectory+#PATH_SEPARATOR+Session+".sess")
       content.s = ReadString(0,#PB_File_IgnoreEOL)
       CloseFile(0)
@@ -114,6 +116,10 @@ Module PBEFileSession
   Procedure.b StartSession()
     *Key = AllocateMemory(32)
     Shared SessionID
+    Shared Session()
+    Shared SessionLists()
+    ClearMap(Session())
+    ClearMap(SessionLists())
     If Len(SessionID) > 20
       ProcedureReturn #True
     EndIf
@@ -272,21 +278,33 @@ Module PBEFileSession
   ; -----------------------------------------------------------------------------------------;
   ; Destroy a Session (this Delete the SessionFile)
   ; -----------------------------------------------------------------------------------------;
-  Procedure.b DestroySession(key.s)
+  Procedure.b DestroySession()
     Shared Session()
     Shared SessionLists()
+    Shared SessionID
     Shared SessionDirectory
-    If DeleteFile(SessionDirectory+#PATH_SEPARATOR+key+".sess")
+    If DeleteFile(SessionDirectory+#PATH_SEPARATOR+SessionID+".sess")
       ClearMap(Session())
       ClearMap(SessionLists())
+      SessionID = ""
       ProcedureReturn #True
     Else
       ProcedureReturn #False
     EndIf
   EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ; Get the Last Editing-Time
+  ; -----------------------------------------------------------------------------------------;
+  Procedure.i LastSessionDate(SessionID.s)
+    Shared SessionDirectory
+    Define.s Filename = SessionDirectory+#PATH_SEPARATOR+SessionID+".sess"
+    ProcedureReturn GetFileDate(Filename,#PB_Date_Modified)
+  EndProcedure
 EndModule
 ; IDE Options = PureBasic 5.42 LTS (Windows - x64)
-; CursorPosition = 2
+; CursorPosition = 298
+; FirstLine = 256
 ; Folding = ---
 ; EnableUnicode
 ; EnableThread
