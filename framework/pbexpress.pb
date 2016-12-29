@@ -34,12 +34,122 @@ DeclareModule PBExpress
   Declare.s GetCookie(Name.s)
   Declare.b Header(Type.s,Value.s,Flags.i = #PB_UTF8)
   Declare Output(OutStr.s)
+  Declare.b SendFile(FileName.s,Show.b = #False,Cache = #True)
+  Declare.b SendBufferAsFile(FileName.s,Buffer.i,Length.i,Show.b = #False,Cache = #True)
 EndDeclareModule
 
 ; -----------------------------------------------------------------------------------------;
 ; The PBExpress-Module
 ; -----------------------------------------------------------------------------------------;
 Module PBExpress
+  ; -----------------------------------------------------------------------------------------;
+  ; The MIME-Type List
+  ; -----------------------------------------------------------------------------------------;
+  NewMap HTTPFileTypes.s()
+  HTTPFileTypes("jar") = "application/java-archive"
+  HTTPFileTypes("json") = "application/json"
+  HTTPFileTypes("pdf") = "application/pdf"
+  HTTPFileTypes("crl") = "application/pkcs-crl"
+  HTTPFileTypes("ps") = "application/postscript"
+  HTTPFileTypes("ai") = "application/postscript"
+  HTTPFileTypes("kml") = "application/vnd.google-earth.kml+xml"
+  HTTPFileTypes("kmz") = "application/vnd.google-earth.kmz"
+  HTTPFileTypes("xml") = "application/xml"
+  HTTPFileTypes("xsl") = "application/xml"
+  HTTPFileTypes("bin") = "application/x-binary"
+  HTTPFileTypes("bz2") = "application/x-bzip2"
+  HTTPFileTypes("deb") = "application/x-debian-package"
+  HTTPFileTypes("dvi") = "application/x-dvi"
+  HTTPFileTypes("gz") = "application/x-gzip"
+  HTTPFileTypes("class") = "application/x-java-vm"
+  HTTPFileTypes("latex") = "application/x-latex"
+  HTTPFileTypes("com") = "application/x-msdos-program"
+  HTTPFileTypes("exe") = "application/x-msdos-program"
+  HTTPFileTypes("bat") = "application/x-msdos-program"
+  HTTPFileTypes("rpm") = "application/x-redhat-packet-manager"
+  HTTPFileTypes("swf") = "application/x-shockwave-flash"
+  HTTPFileTypes("sh") = "application/x-sh"
+  HTTPFileTypes("tgz") = "application/x-tar"
+  HTTPFileTypes("bak") = "application/x-trash"
+  HTTPFileTypes("crt") = "application/x-x509-ca-cert"
+  HTTPFileTypes("cer") = "application/x-x509-ca-cert"
+  HTTPFileTypes("zip") = "application/zip"
+  HTTPFileTypes("xls") = "application/excel"
+  HTTPFileTypes("xlb") = "application/excel"
+  HTTPFileTypes("xlc") = "application/excel"
+  HTTPFileTypes("mdb") = "application/msaccess"
+  HTTPFileTypes("doc") = "application/msword"
+  HTTPFileTypes("ppt") = "application/powerpoint"
+  HTTPFileTypes("pps") = "application/powerpoint"
+  HTTPFileTypes("pptx") = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  HTTPFileTypes("xlsx") = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  HTTPFileTypes("docx") = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  HTTPFileTypes("odg") = "application/vnd.oasis.opendocument.graphics"
+  HTTPFileTypes("odp") = "application/vnd.oasis.opendocument.presentation"
+  HTTPFileTypes("ods") = "application/vnd.oasis.opendocument.spreadsheet"
+  HTTPFileTypes("odt") = "application/vnd.oasis.opendocument.text"
+  HTTPFileTypes("au") = "audio/basic"
+  HTTPFileTypes("mid") = "audio/midi"
+  HTTPFileTypes("midi") = "audio/midi"
+  HTTPFileTypes("m4a") = "audio/mp4a-latm"
+  HTTPFileTypes("m4b") = "audio/mp4a-latm"
+  HTTPFileTypes("mp3") = "audio/mpeg"
+  HTTPFileTypes("ogg") = "audio/ogg"
+  HTTPFileTypes("aac") = "audio/x-aac"
+  HTTPFileTypes("wav") = "audio/x-wav"
+  HTTPFileTypes("bmp") = "image/bmp"
+  HTTPFileTypes("gif") = "image/gif"
+  HTTPFileTypes("jpg") = "image/jpeg"
+  HTTPFileTypes("jpeg") = "image/jpeg"
+  HTTPFileTypes("pcx") = "image/pcx"
+  HTTPFileTypes("png") = "image/png"
+  HTTPFileTypes("svg") = "image/svg+xml"
+  HTTPFileTypes("tiff") = "image/tiff"
+  HTTPFileTypes("nol") = "image/vnd.nok-oplogo-color"
+  HTTPFileTypes("ico") = "image/x-icon"
+  HTTPFileTypes("cache") = "text/cache-manifest"
+  HTTPFileTypes("ics") = "text/calendar"
+  HTTPFileTypes("css") = "text/css"
+  HTTPFileTypes("csv") = "text/csv"
+  HTTPFileTypes("htm") = "text/html"
+  HTTPFileTypes("html") = "text/html"
+  HTTPFileTypes("js") = "text/javascript"
+  HTTPFileTypes("asc") = "text/plain"
+  HTTPFileTypes("asm") = "text/plain"
+  HTTPFileTypes("txt") = "text/plain"
+  HTTPFileTypes("text") = "text/plain"
+  HTTPFileTypes("diff") = "text/plain"
+  HTTPFileTypes("java") = "text/plain"
+  HTTPFileTypes("rtf") = "text/richtext"
+  HTTPFileTypes("wml") = "text/vnd.wap.wml"
+  HTTPFileTypes("c") = "text/x-c"
+  HTTPFileTypes("c++") = "text/x-c++src"
+  HTTPFileTypes("cpp") = "text/x-c++src"
+  HTTPFileTypes("cxx") = "text/x-c++src"
+  HTTPFileTypes("p") = "text/x-pascal"
+  HTTPFileTypes("tcl") = "text/x-tcl"
+  HTTPFileTypes("tex") = "text/x-tex"
+  HTTPFileTypes("ltx") = "text/x-tex"
+  HTTPFileTypes("sty") = "text/x-tex"
+  HTTPFileTypes("3gp") = "video/3gpp"
+  HTTPFileTypes("3gpp") = "video/3gpp"
+  HTTPFileTypes("avi") = "video/avi"
+  HTTPFileTypes("mkv") = "video/x-matroska"
+  HTTPFileTypes("mpeg") = "video/mpeg"
+  HTTPFileTypes("mpg") = "video/mpeg"
+  HTTPFileTypes("mpe") = "video/mpeg"
+  HTTPFileTypes("mp4") = "video/mp4"
+  HTTPFileTypes("qt") = "video/quicktime"
+  HTTPFileTypes("flv") = "video/flv"
+  HTTPFileTypes("asf") = "video/x-ms-asf"
+  HTTPFileTypes("asr") = "video/x-ms-asf"
+  HTTPFileTypes("flr") = "x-world/x-vrml"
+  HTTPFileTypes("vrm") = "x-world/x-vrml"
+  HTTPFileTypes("vrml") = "x-world/x-vrml"
+  HTTPFileTypes("wrl") = "x-world/x-vrml"
+  HTTPFileTypes("wrz") = "x-world/x-vrml"
+  HTTPFileTypes("xaf") = "x-world/x-vrml"
+  
   ; -----------------------------------------------------------------------------------------;
   ; Constants to Setup the Framework
   ; -----------------------------------------------------------------------------------------;
@@ -116,7 +226,6 @@ Module PBExpress
         ProcedureReturn #False
     EndSelect
   EndProcedure
-  
   
   ; -----------------------------------------------------------------------------------------;
   ; Procedure to Parse Routes with an Fake URL and the HTTP-Library
@@ -264,6 +373,84 @@ Module PBExpress
       ProcedureReturn CGICookieValue(Name)
     Else
       ProcedureReturn ""
+    EndIf
+  EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ;  Send File to Browser
+  ; -----------------------------------------------------------------------------------------;
+  Procedure.b SendFile(FileName.s,Show.b = #False,Cache = #True)
+    Shared HTTPFileTypes()
+    Protected.s Disposition,Extension,File,ContentType,First,Second
+    Extension = GetExtensionPart(Filename)
+    If Len(Extension) = 0
+      ProcedureReturn #False
+    EndIf
+    If OpenFile(0,FileName)
+      CloseFile(0)
+      File = GetFilePart(Filename)
+      Disposition + "filename="+File
+      If FindMapElement(HTTPFileTypes(),Extension)
+        ContentType = HTTPFileTypes()
+        First = StringField(ContentType,1,"/")
+        Second = StringField(ContentType,2,"/")
+        If (First = "video" Or First = "audio" Or First = "image" Or First = "text" Or Second = "pdf") And Show
+          Disposition = Disposition
+        Else
+          Disposition = "attachment; " + Disposition
+        EndIf
+      Else
+        ContentType = "application/octet-stream"
+        Disposition = "attachment; " + Disposition
+      EndIf
+      WriteCGIHeader(#PB_CGI_HeaderContentType, ContentType)
+      If Not Cache
+        WriteCGIHeader(#PB_CGI_HeaderPragma, "no-cache")
+      EndIf
+      WriteCGIHeader(#PB_CGI_HeaderContentDisposition, Disposition, #PB_CGI_LastHeader)
+      WriteCGIFile(FileName)
+      ProcedureReturn #True
+    Else
+      ProcedureReturn #False
+    EndIf
+  EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ;  Send Buffer as File to Browser
+  ; -----------------------------------------------------------------------------------------;
+  Procedure.b SendBufferAsFile(FileName.s,Buffer.i,Length.i,Show.b = #False,Cache = #True)
+    Shared HTTPFileTypes()
+    Protected.s Disposition,Extension,File,ContentType,First,Second
+    If Buffer = 0 And Length = 0
+      ProcedureReturn #False
+    EndIf
+    Extension = GetExtensionPart(Filename)
+    File = GetFilePart(Filename)
+    If Len(Extension) = 0
+      ProcedureReturn #False
+    Else
+      Disposition + "filename="+File
+      If FindMapElement(HTTPFileTypes(),Extension)
+        ContentType = HTTPFileTypes()
+        First = StringField(ContentType,1,"/")
+        Second = StringField(ContentType,2,"/")
+        If (First = "video" Or First = "audio" Or First = "image" Or First = "text" Or Second = "pdf") And Show
+          Disposition = "inline; " + Disposition
+        Else
+          Disposition = "attachment; " + Disposition
+        EndIf
+      Else
+        ContentType = "application/octet-stream"
+        Disposition = "attachment; " + Disposition
+      EndIf
+      Debug Disposition
+      WriteCGIHeader(#PB_CGI_HeaderContentType, ContentType)
+      If Not Cache
+        WriteCGIHeader(#PB_CGI_HeaderPragma, "no-cache")
+      EndIf
+      WriteCGIHeader(#PB_CGI_HeaderContentDisposition, Disposition, #PB_CGI_LastHeader)
+      WriteCGIData(Buffer, Length)
+      ProcedureReturn #True
     EndIf
   EndProcedure
   
@@ -432,11 +619,12 @@ Module PBExpress
       ClearMap(Get())
       ClearMap(Files())
     Wend
+    ProcedureReturn #False
   EndProcedure
 EndModule
 ; IDE Options = PureBasic 5.51 (Windows - x64)
-; CursorPosition = 388
-; FirstLine = 399
+; CursorPosition = 445
+; FirstLine = 418
 ; Folding = ---
 ; EnableThread
 ; EnableXP
