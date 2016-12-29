@@ -12,5 +12,7 @@ PBExpress nutzt FastCGI, um sich leicht an jeden beliebigen Webserver anbinden z
 
 Wenn die Anwendung Singlethreaded implementiert wird und den TCP-Port beim Start als Parameter erwartet, dann kann man mit einem Bash-/Batch-Script viele Instanzen laufen lassen und somit seine Serverhardware ideal ausnutzen, während der Loadbalancer des Webservers sich darum kümmert, die Anfragen homogen zu verteilen.
 
+Ebenfalls wichtig zu wissen ist, das die Module so geschrieben sind, das sie völlig unabhängig von einander laufen. Sollte also irgendwer eine andere Funktionalität für Sessions verwenden wollen, kann er das FileSession-Modul einfach weglassen. Hat jemand einen Webserver für PureBasic geschrieben und möchte dafür Security und FileSession verwenden, so kann er das ohne Einschränkungen tun.
+
 ## Dokumentation?
 Zur Zeit wird das Projekt nur in deutscher Sprache gepflegt. Daher ist auch das Wiki in deutscher Sprache. Das Wiki befindet sich oben in den Reitern. Oder man klickt auf diesen Link: https://github.com/reVerBxTc/PBExpress/wiki
