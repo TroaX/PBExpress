@@ -19,3 +19,5 @@ Ebenfalls wichtig zu wissen ist, das die Module so geschrieben sind, das sie vö
 
 ## Dokumentation?
 Zur Zeit wird das Projekt nur in deutscher Sprache gepflegt. Daher ist auch das Wiki in deutscher Sprache. Das Wiki befindet sich oben in den Reitern. Oder man klickt auf diesen Link: https://github.com/reVerBxTc/PBExpress/wiki
+
+News gibt es unter: https://github.com/reVerBxTc/PBExpress/blob/master/NEWS.md
