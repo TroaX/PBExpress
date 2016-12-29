@@ -1,5 +1,10 @@
 # News zum Projekt
 #####
+## Senden von Dateien
+**29.12.2016 - 20:57**
+
+Das Hauptmodul hat jetzt die beiden Prozeduren SendFile() und SendBufferAsFile() dazubekommen. Mit diesen Beiden Prozeduren kann man Dateien an den Browser senden. Mehr Informationen gibt es im Tutorial zum Hauptmodul im Wiki.
+
 ## Initial-News
 **29.12.2016 - 13:36**
 
