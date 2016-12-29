@@ -434,11 +434,12 @@ Module PBExpress
     Wend
   EndProcedure
 EndModule
-; IDE Options = PureBasic 5.42 LTS (Windows - x64)
-; CursorPosition = 41
-; FirstLine = 388
+; IDE Options = PureBasic 5.51 (Windows - x64)
+; CursorPosition = 388
+; FirstLine = 399
 ; Folding = ---
-; EnableUnicode
 ; EnableThread
 ; EnableXP
 ; CompileSourceDirectory
+; Compiler = PureBasic 5.51 (Windows - x64)
+; EnableUnicode

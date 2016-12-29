@@ -10,7 +10,7 @@ DeclareModule PBESecurity
   Declare.s HTMLSpecialChars(Input.s)
   Declare.s SQLEscaping(Input.s)
   Declare.s GenerateSecureID(Data1.s = "DefaultData")
-  Declare.s PasswordHash(Password.s,Salt.s = "",Coast.i = 25000)
+  Declare.s PasswordHash(Password.s,Salt.s = "",Coast.i = 300000)
   Declare.b PasswordVerify(Password.s,HashedString.s)
   Declare.s GenerateSecureString(Count.i = 16)
   Declare.s GeneratePassword(Count.i = 12)
@@ -20,6 +20,38 @@ EndDeclareModule
 ; Begin Module
 ; -----------------------------------------------------------------------------------------;
 Module PBESecurity
+  ; -----------------------------------------------------------------------------------------;
+  ; Private-Procedure for XOR 2 Hashes
+  ; -----------------------------------------------------------------------------------------;
+  Global Dim HexTable.a(127)
+  Define.i i
+  For i='0' To '9'
+    HexTable(i)=(i-'0')
+  Next
+  For i='a' To 'f'
+    HexTable(i)=(i-'a'+10)
+  Next
+  For i='A' To 'F'
+    HexTable(i)=(i-'A'+10)
+  Next
+  For i=0 To 15
+    HexTable(i)=Asc(Hex(i))
+  Next
+  
+  Procedure HashXOR(*retchar.character,*achar.character,*bchar.character)
+    While *achar\c>0
+      *retchar\c=HexTable((HexTable(*achar\c&$7f)) ! (HexTable(*bchar\c&$7f)))
+      *achar+SizeOf(character)
+      *bchar+SizeOf(character)
+      *retchar+SizeOf(character)
+    Wend
+  EndProcedure
+  
+  ; -----------------------------------------------------------------------------------------;
+  ; Init Fingerprints for Passwordhashing
+  ; -----------------------------------------------------------------------------------------;
+  UseSHA3Fingerprint()
+  
   ; -----------------------------------------------------------------------------------------;
   ; Search/Replace Structure for HTMLSpecialChars
   ; -----------------------------------------------------------------------------------------;
@@ -42,50 +74,31 @@ Module PBESecurity
   Specials()\Search  = ">"
   Specials()\Replace = "&gt;"
   AddElement(Specials())
+  Specials()\Search  = "'"
+  Specials()\Replace = "&apos;"
+  AddElement(Specials())
   Specials()\Search  = Chr(34)
   Specials()\Replace = "&quot;"
-  
-  ; -----------------------------------------------------------------------------------------;
-  ; Init Fingerprints for Passwordhashing
-  ; -----------------------------------------------------------------------------------------;
-  UseSHA3Fingerprint()
-  UseSHA1Fingerprint()
-  UseSHA2Fingerprint()
-  UseMD5Fingerprint()
-  
-  ; -----------------------------------------------------------------------------------------;
-  ; Private-Procedure for XOR 2 Hashes
-  ; -----------------------------------------------------------------------------------------;
-  Procedure.s HashXOR(HashA.s,HashB.s)
-    Define.i ByteLenA,ByteLenB
-    ByteLenA = Len(HashA)
-    ByteLenB = Len(HashB)
-    If ByteLenA = ByteLenB
-      Define.s NewHash
-      Define.i Counter
-      Define.b ByteA,ByteB
-      For Counter = 0 To ByteLenA -1
-        ByteA = Val("$"+Mid(HashA,Counter,1))
-        ByteB = Val("$"+Mid(HashB,Counter,1))
-        NewHash + Hex(ByteA ! ByteB)
-      Next
-      ProcedureReturn LCase(NewHash)
-    Else
-      ProcedureReturn ""
-    EndIf
-  EndProcedure
   
   ; -----------------------------------------------------------------------------------------;
   ; Generate Secure ID for Cookies, Sessions or XSRF (CSRF)
   ; -----------------------------------------------------------------------------------------;
   Procedure.s GenerateSecureID(Data1.s = "DefaultData")
-    Define.s Data2, Data3
+    Define.s Data2, Data3, Data4
+    Define *Cache
     If OpenCryptRandom()
       Data2 = Str(Date())
       Data3 = Str(100000000 + CryptRandom(89999999))
+      *Cache = AllocateMemory(64)
+      Data4 = Space(87)
+      CryptRandomData(*Cache,64)
+      Base64Encoder(*Cache,64,@Data4,87,#PB_Cipher_NoPadding)
+      Data4 = PeekS(@Data4,87,#PB_Ascii)
       CloseCryptRandom()
+      ProcedureReturn StringFingerprint(Data1+Data2+Data3+Data4,#PB_Cipher_SHA3,256,#PB_UTF8)
+    Else
+      ProcedureReturn ""
     EndIf
-    ProcedureReturn StringFingerprint(Data1+Data2+Data3,#PB_Cipher_SHA3,224,#PB_UTF8)
   EndProcedure
   
   ; -----------------------------------------------------------------------------------------;
@@ -93,22 +106,18 @@ Module PBESecurity
   ; -----------------------------------------------------------------------------------------;
   Procedure.s GeneratePassword(Count.i = 12)
     If OpenCryptRandom()
+      Define.s InitString = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-=#$%&!?=#$ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-=#$%&!?=#$"
       If Count = 0
-        Count = 6 + CryptRandom(16)
+        Count = 8 + CryptRandom(16)
       EndIf
       Define ReturnString.s = ""
-      Dim ranchar.c(6)
+      Dim ranchar.c(9)
       Define x.i
+      Define.i Length = Len(InitString)
       For x = 1 To Count
-        ranchar(0) = CryptRandom(3) + 35
-        ranchar(1) = CryptRandom(9) + 48
-        ranchar(2) = CryptRandom(25) + 65
-        ranchar(3) = CryptRandom(25) + 65
-        ranchar(4) = CryptRandom(25) + 97
-        ranchar(5) = CryptRandom(25) + 97
-        ranchar(6) = CryptRandom(2) + 45
-        ReturnString + Chr(ranchar(Random(6,0)))
+        ReturnString + Mid(InitString,CryptRandom(Length - 1)+1,1)
       Next
+      CloseCryptRandom()
       ProcedureReturn ReturnString
     Else
       ProcedureReturn ""
@@ -163,27 +172,31 @@ Module PBESecurity
   ; Private Hash-Procedure
   ; -----------------------------------------------------------------------------------------;
   Procedure.s PBKDF2(Hash.i,Bits.i,Password.s,Salt.s,Coast.i)
-    Define.s HashA,HashB,PWandSalt,Finished
-    Define.i Counter
-    PWandSalt = Password + Salt
+    Define.s HashA,HashB,PreString
+    Define.i Counter,Bytes
+    PreString = Password + Salt
+    Define *Buffer = AllocateMemory(Len(PreString) * 6)
+    Bytes = PokeS(*Buffer, PreString,-1,#PB_UTF8)
+    HashA = Fingerprint(*Buffer,bytes,Hash,Bits)
     For Counter = 1 To Coast
-      HashA = StringFingerprint(PWandSalt,Hash,Bits,#PB_UTF8)
-      HashB = StringFingerprint(HashA,Hash,Bits,#PB_UTF8)
-      PWandSalt = HashXOR(HashA,HashB)
+      Bytes = PokeS(*buffer,HashA,-1,#PB_UTF8)
+      HashB = Fingerprint(*Buffer,Bytes,Hash,Bits)
+      HashXOR(@HashA,@HashA,@HashB)
     Next Counter
-    ProcedureReturn PWandSalt
+    ProcedureReturn HashA
   EndProcedure
-  
+
   ; -----------------------------------------------------------------------------------------;
   ; Public Hash-Procedure
   ; -----------------------------------------------------------------------------------------;
-  Procedure.s PasswordHash(Password.s,Salt.s = "",Coast.i = 25000)
+  Procedure.s PasswordHash(Password.s,Salt.s = "",Coast.i = 300000)
     Define.i Algo = #PB_Cipher_SHA3
     Define.i Size = 256
     Define.s PWHash
     If Len(Salt) = 0
-      Salt = GenerateSecureString(16)
+      Salt = GeneratePassword(0)
     EndIf
+    Salt = RemoveString(Salt,"|")
     PWHash = PBKDF2(Algo,Size,Password,Salt,Coast)
     ProcedureReturn Str(Algo)+"|"+Str(Size)+"|"+Str(Coast)+"|"+PWHash+"|"+Salt
   EndProcedure
@@ -211,18 +224,12 @@ Module PBESecurity
     EndIf
   EndProcedure
 EndModule
-
-OpenConsole()
-Repeat
-  PrintN(PBESecurity::GeneratePassword())
-  Tzzz.s = Input()
-Until Tzzz = "x"
-
-; IDE Options = PureBasic 5.42 LTS (Windows - x64)
-; CursorPosition = 216
-; FirstLine = 172
+; IDE Options = PureBasic 5.51 (Windows - x64)
+; CursorPosition = 47
+; FirstLine = 24
 ; Folding = --
-; EnableUnicode
 ; EnableThread
 ; EnableXP
 ; CompileSourceDirectory
+; Compiler = PureBasic 5.51 (Windows - x64)
+; EnableUnicode

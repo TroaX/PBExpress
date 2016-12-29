@@ -25,7 +25,7 @@ DeclareModule PBEFileSession
   Declare.b CloseSession()
   Declare.s SessionID()
   Declare.b SetSessionDirectory(Directory.s)
-  Declare.b DestroySession(key.s)
+  Declare.b DestroySession()
 EndDeclareModule
 
 ; -----------------------------------------------------------------------------------------;
@@ -302,11 +302,12 @@ Module PBEFileSession
     ProcedureReturn GetFileDate(Filename,#PB_Date_Modified)
   EndProcedure
 EndModule
-; IDE Options = PureBasic 5.42 LTS (Windows - x64)
-; CursorPosition = 298
-; FirstLine = 256
+; IDE Options = PureBasic 5.51 (Windows - x64)
+; CursorPosition = 293
+; FirstLine = 267
 ; Folding = ---
-; EnableUnicode
 ; EnableThread
 ; EnableXP
 ; CompileSourceDirectory
+; Compiler = PureBasic 5.51 (Windows - x64)
+; EnableUnicode
