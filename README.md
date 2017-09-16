@@ -2,7 +2,7 @@
 Lightweight PureBasic FastCGI Framework
 
 **STATUS:** ALPHA | **FEATURE-FERTIG:** NEIN
-######
+
 
 ## Was ist es?
 Es ist/wird ein in PureBasic geschriebenes Framework für das entwickeln hochperformanter Webanwendungen. PureBasic besitzt mittlerweile eine FastCGI-Implementierung, die im Grunde bereits die schwerste aller Aufgaben übernimmt. Allerdings reicht diese Implementierung nicht aus. Es fehlen noch Unmengen an Funktionalitäten, um damit entspannt Webanwendungen zu entwickeln. Aus diesem Grund wird PBExpress entwickelt.
