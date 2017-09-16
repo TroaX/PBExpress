@@ -18,6 +18,6 @@ Wenn die Anwendung Singlethreaded implementiert wird und den TCP-Port beim Start
 Ebenfalls wichtig zu wissen ist, das die Module so geschrieben sind, das sie völlig unabhängig voneinander laufen. Sollte also irgendwer eine andere Funktionalität für Sessions verwenden wollen, kann er das FileSession-Modul einfach weglassen. Hat jemand einen Webserver für PureBasic geschrieben und möchte dafür Security und FileSession verwenden, so kann er das ohne Einschränkungen tun.
 
 ## Dokumentation?
-Zur Zeit wird das Projekt nur in deutscher Sprache gepflegt. Daher ist auch das Wiki in deutscher Sprache. Das Wiki befindet sich oben in den Reitern. Oder man klickt auf diesen Link: https://github.com/reVerBxTc/PBExpress/wiki
+Zur Zeit wird das Projekt nur in deutscher Sprache gepflegt. Daher ist auch das Wiki in deutscher Sprache. Das Wiki befindet sich oben in den Reitern. Oder man klickt auf diesen Link: [Zum Wiki](https://github.com/reVerBxTc/PBExpress/wiki)
 
-News gibt es unter: https://github.com/reVerBxTc/PBExpress/blob/master/NEWS.md
+News gibt es unter: [Zu den News](https://github.com/reVerBxTc/PBExpress/blob/master/NEWS.md)
