@@ -1,4 +1,9 @@
 # PBExpress
+
+**WICHTIG: Ich habe die Arbeit mit PureBasic vorerst gestoppt. Ich bin aktuell nicht zufrieden mit den Möglichenkeiten, die mir PureBasic für solche Projekte zur Verfügung stellt. Es sind also keine Updates zu erwarten.**
+
+**IMPORTANT: I stopped working with PureBasic for the time being. I'm currently not satisfied with the possibilities that PureBasic gives me for such projects. So no updates are to be expected.**
+
 Lightweight PureBasic FastCGI Framework
 
 **STATUS:** ALPHA | **FEATURE-FERTIG:** NEIN
